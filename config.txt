@@ -1,0 +1,9 @@
+localDNSServer = 127.0.0.1:1555
+netplusWebServer = 127.0.0.1:1666
+netplusDNSServer = 127.0.0.1:1777
+abCDNDNSServer = 127.0.0.1:1888
+
+HQ = 9111
+MQ = 9222
+LQ = 9333
+
