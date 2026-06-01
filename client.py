@@ -93,6 +93,7 @@ def processBuffer() :
     current_encoding = "HQ"
     started = False
     just_switched = False  # 같은 iteration 내 연속 전환 방지
+    switch_t_N = "00:00:00:000"  # 전환 요청 시 보낸 t_N 기록
 
     while True :
         chunk = None
@@ -118,11 +119,16 @@ def processBuffer() :
                 with lock:
                     if switch_buffer:
                         chunk_idx = None
+                        min_t_s = float('inf')
+                        switch_t_N_sec = toSeconds(switch_t_N)
                         for i, (d, _) in enumerate(switch_buffer):
-                            temp_t_s = d.decode().split(",")[0].split("=")[1]
-                            if toSeconds(temp_t_s) >= toSeconds(t_end):
+                            temp_t_s_str = d.decode().split(",")[0].split("=")[1]
+                            temp_t_s_sec = toSeconds(temp_t_s_str)
+                            if (temp_t_s_sec >= toSeconds(t_end) and
+                                    (temp_t_s_sec - switch_t_N_sec) <= 30 and
+                                    temp_t_s_sec < min_t_s):
+                                min_t_s = temp_t_s_sec
                                 chunk_idx = i
-                                break
                         if chunk_idx is not None:
                             # term(영상 공백) 계산 및 시뮬레이션
                             first_t_s = switch_buffer[chunk_idx][0].decode().split(",")[0].split("=")[1]
@@ -153,12 +159,14 @@ def processBuffer() :
                         switch_encoding = "HQ"
                         active_encoding = "HQ"
                         switching = True
+                        switch_t_N = t_end
                         sock.sendto(f"https://abCDN.net/{inputMovieNumber},{t_end}".encode(), (HQIPAddr, HQIPPort))
                     elif current_encoding == "LQ" and not switching and not just_switched:
                         print(f"encoding 화질을 LQ -> MQ로 전환 요청, k={K}, β={BETA}, γ={GAMMA}, R_buffer={R_buffer:.4f}")
                         switch_encoding = "MQ"
                         active_encoding = "MQ"
                         switching = True
+                        switch_t_N = t_end
                         sock.sendto(f"https://abCDN.net/{inputMovieNumber},{t_end}".encode(), (MQIPAddr, MQIPPort))
                 elif R_buffer < GAMMA :
                     print(f"R_buffer가 GAMMA({GAMMA}) 미만입니다.")
@@ -167,12 +175,14 @@ def processBuffer() :
                         switch_encoding = "MQ"
                         active_encoding = "MQ"
                         switching = True
+                        switch_t_N = t_end
                         sock.sendto(f"https://abCDN.net/{inputMovieNumber},{t_end}".encode(), (MQIPAddr, MQIPPort))
                     elif current_encoding == "MQ" and not switching and not just_switched:
                         print(f"encoding 화질을 MQ -> LQ로 전환 요청, k={K}, β={BETA}, γ={GAMMA}, R_buffer={R_buffer:.4f}")
                         switch_encoding = "LQ"
                         active_encoding = "LQ"
                         switching = True
+                        switch_t_N = t_end
                         sock.sendto(f"https://abCDN.net/{inputMovieNumber},{t_end}".encode(), (LQIPAddr, LQIPPort))
                 probe.pop(0)
             just_switched = False  # 다음 iteration부터 전환 허용
