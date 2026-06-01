@@ -54,6 +54,7 @@ buffer = []
 switch_buffer = []
 switching = False
 switch_encoding = None
+switch_t_N = "00:00:00:000"
 BUFFER_SIZE = 12
 INITIAL_BUFFER_SIZE = 4
 
@@ -76,8 +77,12 @@ def receiveChunksToBuffer() :
         with lock:
             #화질 전환 시 버퍼 관리
             if switching and encoding == switch_encoding and len(switch_buffer) < BUFFER_SIZE:
-                switch_buffer.append((data, encoding))
-                print(f"switch_buffer에 추가: {data.decode()}")
+                t_s_sec = toSeconds(data.decode().split(",")[0].split("=")[1])
+                switch_t_N_sec = toSeconds(switch_t_N)
+                # 오래된 UDP 패킷 필터링: switch_t_N 이후 30초 이내만 수락
+                if switch_t_N_sec <= t_s_sec <= switch_t_N_sec + 30:
+                    switch_buffer.append((data, encoding))
+                    print(f"switch_buffer에 추가: {data.decode()}")
             #화질 전환을 하지 않은 경우
             elif not switching and encoding == active_encoding and len(buffer) < BUFFER_SIZE:
                 buffer.append((data, encoding))
@@ -87,13 +92,13 @@ def receiveChunksToBuffer() :
 
 
 def processBuffer() :
-    global active_encoding, switching, switch_encoding
+    global active_encoding, switching, switch_encoding, switch_t_N
     probe = []
     R_buffer = 0.0
     current_encoding = "HQ"
     started = False
     just_switched = False  # 같은 iteration 내 연속 전환 방지
-    switch_t_N = "00:00:00:000"  # 전환 요청 시 보낸 t_N 기록
+    last_t_end = "00:00:00:000"  # 마지막으로 재생 완료된 chunk의 t_end
 
     while True :
         chunk = None
@@ -109,10 +114,11 @@ def processBuffer() :
             t_s = chunkTimes[0].split("=")[1]
             t_end = chunkTimes[1].split("=")[1]
             chunkPlayTime = toSeconds(t_end) - toSeconds(t_s)
-            time.sleep(chunkPlayTime * 0.1) #chunk 재생 시간만큼 잠깐 멈추도록 설정 * 0.5
+            time.sleep(chunkPlayTime * 0.5) #chunk 재생 시간만큼 잠깐 멈추도록 설정 * 0.5
             with lock:
                 buf_ratio = len(buffer) / BUFFER_SIZE  # sleep 후 측정 → 실제 버퍼 상태 반영
             print(f"재생 중 : {t_s} ~ {t_end} 현재 화질 : {chunk_encoding}, 재생 중인 버퍼 비율 : {len(buffer)}/{BUFFER_SIZE}")
+            last_t_end = t_end
 
             # case(i) / case(ii): chunk 재생 완료 후 switch_buffer 확인
             if switching:
@@ -120,6 +126,7 @@ def processBuffer() :
                     if switch_buffer:
                         chunk_idx = None
                         min_t_s = float('inf')
+                        switch_t_N_sec = toSeconds(switch_t_N)
                         for i, (d, _) in enumerate(switch_buffer):
                             temp_t_s_str = d.decode().split(",")[0].split("=")[1]
                             temp_t_s_sec = toSeconds(temp_t_s_str)
@@ -188,6 +195,34 @@ def processBuffer() :
 
 
         else:
+            # buffer가 빈 상태에서 switching 중이면 switch_buffer 직접 확인
+            if switching:
+                with lock:
+                    if switch_buffer:
+                        chunk_idx = None
+                        min_t_s = float('inf')
+                        for i, (d, _) in enumerate(switch_buffer):
+                            temp_t_s_str = d.decode().split(",")[0].split("=")[1]
+                            temp_t_s_sec = toSeconds(temp_t_s_str)
+                            if (temp_t_s_sec >= toSeconds(last_t_end) and
+                                    temp_t_s_sec < min_t_s):
+                                min_t_s = temp_t_s_sec
+                                chunk_idx = i
+                        if chunk_idx is not None:
+                            first_t_s = switch_buffer[chunk_idx][0].decode().split(",")[0].split("=")[1]
+                            gap = toSeconds(first_t_s) - toSeconds(last_t_end)
+                            if gap > 0:
+                                print(f"영상 공백(term): {last_t_end} ~ {first_t_s} ({gap:.3f}초)")
+                                time.sleep(gap * 0.5)
+                            buffer.clear()
+                            for item in switch_buffer[chunk_idx:]:
+                                buffer.append(item)
+                            switch_buffer.clear()
+                            current_encoding = switch_encoding
+                            switching = False
+                            just_switched = True
+                            probe.clear()
+                            print(f"화질 전환 완료: → {current_encoding}, k={K}, β={BETA}, γ={GAMMA}, R_buffer={R_buffer:.4f}")
             continue
 
 

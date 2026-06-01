@@ -7,9 +7,10 @@ movie3 = {"duration": 150, "HQ": 45, "MQ": 30, "LQ": 15}
 movie4 = {"duration": 240, "HQ": 60, "MQ": 40, "LQ": 20}
 movie5 = {"duration": 180, "HQ": 54, "MQ": 36, "LQ": 18}
 movie6 = {"duration":  90, "HQ": 27, "MQ": 18, "LQ":  9}
-movie7 = {"duration": 300, "HQ": 75, "MQ": 50, "LQ": 25}
+movie7 = {"duration": 300, "HQ": 60, "MQ": 40, "LQ": 25}
 movie8 = {"duration": 120, "HQ": 36, "MQ": 24, "LQ": 12}
 movie9 = {"duration": 210, "HQ": 63, "MQ": 42, "LQ": 21}
+
 
 #chunk 정보
 movies = {
