@@ -109,7 +109,7 @@ def processBuffer() :
             t_s = chunkTimes[0].split("=")[1]
             t_end = chunkTimes[1].split("=")[1]
             chunkPlayTime = toSeconds(t_end) - toSeconds(t_s)
-            time.sleep(chunkPlayTime * 0.5) #chunk 재생 시간만큼 잠깐 멈추도록 설정 * 0.5
+            time.sleep(chunkPlayTime * 0.1) #chunk 재생 시간만큼 잠깐 멈추도록 설정 * 0.5
             with lock:
                 buf_ratio = len(buffer) / BUFFER_SIZE  # sleep 후 측정 → 실제 버퍼 상태 반영
             print(f"재생 중 : {t_s} ~ {t_end} 현재 화질 : {chunk_encoding}, 재생 중인 버퍼 비율 : {len(buffer)}/{BUFFER_SIZE}")
@@ -124,8 +124,7 @@ def processBuffer() :
                         for i, (d, _) in enumerate(switch_buffer):
                             temp_t_s_str = d.decode().split(",")[0].split("=")[1]
                             temp_t_s_sec = toSeconds(temp_t_s_str)
-                            if (temp_t_s_sec >= toSeconds(t_end) and
-                                    (temp_t_s_sec - switch_t_N_sec) <= 30 and
+                            if (temp_t_s_sec >= toSeconds(t_end)  and
                                     temp_t_s_sec < min_t_s):
                                 min_t_s = temp_t_s_sec
                                 chunk_idx = i
