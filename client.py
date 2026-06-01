@@ -120,7 +120,6 @@ def processBuffer() :
                     if switch_buffer:
                         chunk_idx = None
                         min_t_s = float('inf')
-                        switch_t_N_sec = toSeconds(switch_t_N)
                         for i, (d, _) in enumerate(switch_buffer):
                             temp_t_s_str = d.decode().split(",")[0].split("=")[1]
                             temp_t_s_sec = toSeconds(temp_t_s_str)
